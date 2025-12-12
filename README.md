@@ -117,17 +117,8 @@ Learning curves
 
 Precision-recall curves
 
-6. Model Comparison (Summary)
-Model	Precision	Recall	F1	PR-AUC
-Logistic Regression	Low	High	Very Low	Low
-Random Forest	High	Low	Moderate	Moderate
-XGBoost (default)	Moderate	High	Moderate	High
-XGBoost + Threshold = 0.666	0.65	0.57	0.61	0.648
-Final Model Chosen:
 
-XGBoost (Threshold = 0.666)
-
-7. Why XGBoost Was Selected
+6. Why XGBoost Was Selected
 
 Models complex nonlinear fraud patterns
 
