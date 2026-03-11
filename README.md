@@ -1,141 +1,248 @@
+# Return Fraud Detection System (Machine Learning)
 
-1. Project Overview
+## Overview
+Fraudulent transactions represent a major financial risk for e-commerce platforms. Detecting fraud is challenging because fraudulent transactions are rare, complex, and often hidden among millions of legitimate purchases. This project builds a complete machine learning pipeline for detecting fraudulent e-commerce transactions using behavioral, transactional, and contextual features derived from raw transaction data.
 
-This project builds a complete machine-learning solution to detect fraudulent e-commerce transactions.
-A full pipeline was developed including data preprocessing, feature engineering, model training, model comparison, threshold tuning, and deployment-ready saving of the final system.
-XGBoost with optimized decision thresholding produced the best overall fraud-detection performance.
+The system covers the full ML workflow including data preprocessing, feature engineering, model training, evaluation, threshold optimization, and model export. Multiple models were evaluated including Logistic Regression, Random Forest, and XGBoost. The final model was selected using metrics suitable for imbalanced datasets, particularly Precision–Recall AUC and F1 Score.
 
-2. Objective
+The final system demonstrates how machine learning can capture complex fraud patterns and provide a practical operating threshold for real-world fraud detection systems.
 
-The goal is to assign each transaction a fraud probability and use an optimized threshold to classify it as fraudulent or legitimate.
-Since fraud is extremely rare and costly, the project emphasizes precision–recall tradeoffs, PR-AUC, and threshold optimization rather than accuracy.
+---
 
-3. Dataset Description
+## Problem Statement
+Fraud detection is a binary classification problem where the goal is to determine whether a transaction is fraudulent or legitimate.
 
-The dataset contains ~273k e-commerce transactions with both raw and engineered features.
-Key variables include:
+The dataset is highly imbalanced because fraudulent transactions occur far less frequently than legitimate ones. Because of this imbalance, traditional metrics such as accuracy are misleading.
 
-Transaction Amount
+The main objective of this project is to build a model that can reliably detect fraudulent transactions while balancing:
 
-Payment Method
+Precision — minimizing false fraud alerts  
+Recall — capturing as many fraud cases as possible
 
-Product Category
+---
 
-Customer Age
+## Dataset
+Two publicly available datasets were initially explored:
 
-Customer Location
+1. Fraudulent E-Commerce Transaction Dataset  
+2. E-commerce Returns Dataset
 
+The goal was to combine both datasets to obtain richer information, since the returns dataset contains useful behavioral attributes while the fraud dataset includes the fraud label. However, after inspecting the customer identifiers, the IDs between the two datasets did not match, making a reliable merge impossible.
+
+Therefore, the fraud transaction dataset was used as the primary dataset.
+
+The dataset contains transaction-level attributes such as:
+
+Transaction amount  
+Customer age  
+Account age  
+Device used  
+Payment method  
+Product category  
+IP address  
+Customer location  
+Shipping address  
+Billing address  
+Transaction timestamp  
+
+Target variable:
+
+Is Fraudulent (1 = Fraud, 0 = Legitimate)
+
+---
+
+## Feature Engineering
+Several domain-inspired features were engineered to capture fraud behavior patterns.
+
+### Location-Based Features
+Customer location was converted into a fraud-rate feature:
+
+Loc_Fraud_Rate = average fraud rate of transactions from that location
+
+This helps capture geographic patterns of fraud activity.
+
+### IP Behavior Features
+Fraud often involves suspicious IP usage patterns. The following features were created:
+
+Customer_IP_Count — number of unique IPs used by a customer  
+IP_Usage_Count — number of transactions associated with an IP  
+IP_Fraud_History — historical fraud rate associated with an IP
+
+These features help detect IP sharing and abnormal usage patterns.
+
+### Time-Based Features
+Transaction timestamps were transformed into structured time features:
+
+Month  
+Weekday  
+Transaction Hour  
+Weekend indicator
+
+Fraud patterns frequently correlate with unusual transaction timing.
+
+### Customer History Features
+Historical customer behavior was captured using cumulative statistics:
+
+Cust_Past_Fraud  
+Cust_Fraud_Flag  
+Cust_Txn_Count  
+Cust_Fraud_Rate
+
+These features represent the historical fraud behavior of each customer. If these features were found to contain no useful signal, they were automatically removed.
+
+### Address Mismatch Feature
+Fraudulent orders often have mismatched billing and shipping addresses.
+
+Address_Mismatch = 1 if Shipping Address ≠ Billing Address
+
+### Categorical Encoding
+Nominal categorical variables were encoded using one-hot encoding:
+
+Payment Method  
+Product Category  
 Device Used
 
-IP Address
+### Feature Scaling
+Continuous numerical variables were standardized using StandardScaler to ensure consistent numerical ranges.
 
-Account Age Days
+---
 
-Transaction Hour
+## Handling Class Imbalance
+The original dataset contains significantly more legitimate transactions than fraudulent ones. Training on the full dataset locally would be computationally expensive and would bias the model toward the majority class.
 
-Shipping/Billing Address
+To address this:
 
-Is Fraudulent (target)
+All fraud samples were retained  
+A subset of non-fraud samples was randomly selected
 
-Additional engineered features include:
+This produced a balanced training dataset while preserving fraud diversity.
 
-Location-based fraud rate
+---
 
-IP usage count
+## Model Training
 
-IP fraud history
+### Logistic Regression
+Logistic Regression was used as a baseline model.
 
-Weekend/weekday features
+Findings:
+- Unable to model complex nonlinear fraud patterns
+- Precision–Recall curve showed weak separation
+- Learning curves indicated high bias and underfitting
 
-Address mismatch indicator
+Conclusion: Logistic Regression is too simple for this problem.
 
-4. Data Preprocessing & Feature Engineering
+---
 
-Major preprocessing steps:
+### Random Forest
+Random Forest was used to capture nonlinear feature interactions.
 
-Time-Based Features
+Findings:
+- Significant improvement over Logistic Regression
+- Higher precision indicating fewer false positives
+- Moderate recall indicating some fraud cases were still missed
 
-Extracted Month, Weekday, IsWeekend
+However, the model showed signs of overfitting and limited generalization.
 
-Removed Day and Year (non-informative)
+---
 
-Converted timestamps to proper datetime
+### XGBoost
+XGBoost was used as the final model because of its ability to learn complex feature interactions using gradient boosting.
 
-Risk & Behavior Features
+Advantages:
+- Sequential tree learning that corrects previous errors
+- Effective modeling of nonlinear patterns
+- Built-in regularization to reduce overfitting
 
-Loc_Fraud_Rate = fraud rate by customer location
+Results showed that XGBoost provided the best balance between fraud detection capability and prediction reliability.
 
-IP_Fraud_History = fraud rate per IP
+---
 
-IP_Usage_Count = transactions per IP
+## Model Evaluation Metrics
+Because fraud datasets are highly imbalanced, accuracy is not a reliable metric. Instead, the following metrics were used.
 
-Address_Mismatch = shipping vs billing mismatch
+Precision  
+Measures the percentage of predicted fraud transactions that are actually fraud.
 
-Categorical Encoding
+Recall  
+Measures how many fraudulent transactions the model successfully detected.
 
-One-hot encoding for Payment Method, Product Category, Device Used
+F1 Score  
+Harmonic mean of precision and recall, ensuring balanced performance.
 
-Numerical Scaling
+ROC-AUC  
+Measures ranking quality of predictions.
 
-StandardScaler applied to amount, age, hour, and other continuous variables
+PR-AUC (Average Precision)  
+Primary evaluation metric for imbalanced datasets. It measures how well the model separates fraud from legitimate transactions.
 
-Final Cleanup
+---
 
-Removed Transaction ID
+## Threshold Optimization
+Machine learning models output probabilities rather than direct classifications. The default threshold of 0.5 is often suboptimal for fraud detection.
 
-Removed Customer ID after extracting behavior features
+To determine the best operating threshold:
 
-Prepared an optimized balanced dataset for model experimentation
+1. Precision–Recall vs Threshold curves were analyzed.
+2. F1 scores were calculated across thresholds from 0.01 to 0.99.
+3. The threshold that maximized the F1 score was selected.
 
-5. Modeling Approach
+The optimal threshold for the XGBoost model was approximately:
 
-Models evaluated:
+Threshold = 0.666
 
-Logistic Regression
+This threshold produced the best balance between detecting fraud and avoiding excessive false alarms.
 
-Random Forest
+---
 
-XGBoost
+## Model Comparison Summary
 
-Threshold-tuned XGBoost
+Logistic Regression  
+Underfitting due to inability to capture nonlinear fraud patterns.
 
-Metrics used:
+Random Forest  
+High precision but moderate recall, missing several fraud cases.
 
-Precision
+XGBoost  
+Best overall performance with the highest PR-AUC and strongest balance between precision and recall.
 
-Recall
+Therefore, XGBoost was selected as the final model.
 
-F1 Score
+---
 
-PR-AUC (primary metric for imbalanced data)
+## Final Model
+The trained XGBoost model was exported using joblib for deployment or inference.
 
-ROC-AUC
+Saved model file:
 
-Confusion matrix
+xgb_fraud_model.pkl
 
-Learning curves
-
-Precision-recall curves
-
-
-6. Why XGBoost Was Selected
-
-Models complex nonlinear fraud patterns
-
-Achieves highest PR-AUC (most important fraud metric)
-
-Best tradeoff of precision and recall
-
-Threshold tuning improves F1 significantly
-
-Stable probability separation between fraud and non-fraud
-
-8. Threshold Optimization
-
-A probability sweep from 0.01 → 0.99 was performed.
-F1 score peaked at:
-
-BEST_THRESHOLD = 0.66623265
+---
 
 
-This threshold yields the best balance between false positives and false negatives.
+
+## Technologies Used
+Python  
+NumPy  
+Pandas  
+Scikit-learn  
+XGBoost  
+Matplotlib  
+Seaborn  
+Joblib
+
+---
+
+## Future Improvements
+Several enhancements could further improve the system:
+
+Hyperparameter optimization using Bayesian search  
+Cross-validation with TimeSeriesSplit  
+Feature importance analysis for interpretability  
+Real-time fraud detection pipeline  
+Deployment as a REST API  
+Integration with anomaly detection models
+
+---
+
+## Conclusion
+This project demonstrates a complete fraud detection machine learning pipeline including feature engineering, model evaluation, and threshold optimization. Through systematic experimentation with multiple algorithms, XGBoost was identified as the most effective model for capturing complex fraud behavior patterns. The final model achieves a strong balance between precision and recall and provides a practical decision threshold suitable for real-world fraud detection systems.
